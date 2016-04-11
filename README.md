@@ -2,6 +2,10 @@
 
 Compile top-tags-per-annum statistics from last.fm history.
 
+For each track in a user's last.fm history, grabs the top tag for its
+artist if needed, then increments a counter for this tag (in the
+track's playing year). Then displays the top tags for each year.
+
 # Example
 
     lastfm-annual-top-tags --api-key <api-key> --api-secret <api-secret> --user <user> --save my.json
