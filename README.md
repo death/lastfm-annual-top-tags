@@ -11,7 +11,7 @@ track's playing year). Then displays the top tags for each year.
     lastfm-annual-top-tags --api-key <api-key> --api-secret <api-secret> --user <user>
 
 Will grab the user's history and compile the statistics. It will also
-save the raw statistical data to `state.json`. If the file exist, will
+save the raw statistical data to `state.json`. If the file exists, will
 update the statistics with the tracks played since last run.
 
 Example output:
