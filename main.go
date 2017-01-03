@@ -24,22 +24,16 @@ var (
 	tracksLimit        = flag.Int("tracks-limit", -1, "Maximum number of tracks to process")
 	tracksPerIndicator = flag.Int("tracks-per-indicator", 1000, "Show indicator for every K tracks processed")
 	topThreshold       = flag.Int("top-threshold", 5, "Top tags to print per year")
-	saveFile           = flag.String("save", "", "Save state to the supplied JSON file")
-	loadFile           = flag.String("load", "", "Load state from the supplied JSON file")
+	stateFile          = flag.String("state", "state.json", "Name of the state file")
 )
 
 func main() {
 	flag.Parse()
 
 	s := &State{}
-	if *loadFile == "" {
-		s.build()
-		if *saveFile != "" {
-			s.save(*saveFile)
-		}
-	} else {
-		s.load(*loadFile)
-	}
+	s.load()
+	s.update()
+	s.save()
 	s.printStats()
 }
 
@@ -58,14 +52,15 @@ type TagCounts map[string]*TagAndCount
 type AnnualCounts map[string]TagCounts
 
 type State struct {
-	ArtistTag   map[string]string
-	Alltime     AnnualCounts
-	AnnualPlays map[string]int
-	MinYear     int
-	MaxYear     int
+	ArtistTag      map[string]string
+	Alltime        AnnualCounts
+	AnnualPlays    map[string]int
+	MinYear        int
+	MaxYear        int
+	MostRecentPlay time.Time
 }
 
-func (s *State) build() {
+func (s *State) update() {
 	if *apiKey == "" {
 		log.Fatal("Need API key")
 	}
@@ -82,13 +77,11 @@ func (s *State) build() {
 	api.GetAuthTokenUrl(token)
 	api.LoginWithToken(token)
 
-	s.ArtistTag = make(map[string]string)
-	s.Alltime = make(AnnualCounts)
-	s.AnnualPlays = make(map[string]int)
-	s.MinYear = time.Now().Year()
-	s.MaxYear = time.Now().Year()
+	doEachTrack(api, s.MostRecentPlay, func(artistName string, trackName string, playTime time.Time) {
+		if playTime.After(s.MostRecentPlay) {
+			s.MostRecentPlay = playTime
+		}
 
-	doEachTrack(api, func(artistName string, trackName string, playTime time.Time) {
 		if s.ArtistTag[artistName] == "" {
 			s.ArtistTag[artistName] = getTopTag(api, artistName)
 		}
@@ -120,8 +113,8 @@ func (s *State) build() {
 	})
 }
 
-func (s *State) save(filename string) {
-	f, err := os.Create(filename)
+func (s *State) save() {
+	f, err := os.Create(*stateFile)
 	if err != nil {
 		log.Printf("Couldn't save state: %v\n", err)
 		return
@@ -132,8 +125,21 @@ func (s *State) save(filename string) {
 	}
 }
 
-func (s *State) load(filename string) {
-	f, err := os.Open(filename)
+func (s *State) defaultInit() {
+	s.ArtistTag = make(map[string]string)
+	s.Alltime = make(AnnualCounts)
+	s.AnnualPlays = make(map[string]int)
+	s.MinYear = time.Now().Year()
+	s.MaxYear = time.Now().Year()
+	s.MostRecentPlay = time.Unix(0, 0)
+}
+
+func (s *State) load() {
+	f, err := os.Open(*stateFile)
+	if os.IsNotExist(err) {
+		s.defaultInit()
+		return
+	}
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -162,7 +168,7 @@ func (s *State) printStats() {
 
 type trackProcessor func(artistName string, trackName string, playTime time.Time)
 
-func doEachTrack(api *lastfm.Api, fn trackProcessor) {
+func doEachTrack(api *lastfm.Api, from time.Time, fn trackProcessor) {
 	pageNumber := 1
 
 	if *tracksLimit == 0 {
@@ -170,7 +176,7 @@ func doEachTrack(api *lastfm.Api, fn trackProcessor) {
 	}
 	tracksProcessed := 0
 
-	recentTracks := fetchPage(api, pageNumber)
+	recentTracks := fetchPage(api, from, pageNumber)
 	for pageNumber <= recentTracks.TotalPages {
 		for _, track := range recentTracks.Tracks {
 			// Old last.fm entries apparently don't have a date string.
@@ -191,15 +197,16 @@ func doEachTrack(api *lastfm.Api, fn trackProcessor) {
 			}
 		}
 		pageNumber++
-		recentTracks = fetchPage(api, pageNumber)
+		recentTracks = fetchPage(api, from, pageNumber)
 	}
 }
 
-func fetchPage(api *lastfm.Api, pageNumber int) *lastfm.UserGetRecentTracks {
+func fetchPage(api *lastfm.Api, from time.Time, pageNumber int) *lastfm.UserGetRecentTracks {
 	recentTracks, err := api.User.GetRecentTracks(lastfm.P{
 		"limit": 200,
 		"user":  *user,
 		"page":  pageNumber,
+		"from":  from.Unix(),
 	})
 	if err != nil {
 		log.Fatal(err)

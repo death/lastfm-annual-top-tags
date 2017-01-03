@@ -8,14 +8,11 @@ track's playing year). Then displays the top tags for each year.
 
 # Example
 
-    lastfm-annual-top-tags --api-key <api-key> --api-secret <api-secret> --user <user> --save my.json
+    lastfm-annual-top-tags --api-key <api-key> --api-secret <api-secret> --user <user>
 
 Will grab the user's history and compile the statistics. It will also
-save the raw statistical data to `my.json`.
-
-Then you can load it and compile the statistics again:
-
-    lastfm-annual-top-tags --load my.json
+save the raw statistical data to `state.json`. If the file exist, will
+update the statistics with the tracks played since last run.
 
 Example output:
 
@@ -23,7 +20,7 @@ Example output:
     2013: doom metal (19.2), classic rock (8.8), neofolk (7.1), gothic metal (6.9), black metal (6.9)
     2014: classic rock (22.0), blues (14.7), doom metal (7.1), rock (6.0), punk (3.9)
     2015: classic rock (13.1), folk (12.7), post-punk (9.6), doom metal (5.9), rock (4.1)
-    2016: post-punk (11.6), darkwave (9.3), synthpop (7.7), ebm (7.4), classic rock (5.8)
+    2016: post-punk (9.1), doom metal (7.9), electronic (7.0), darkwave (6.8), neofolk (6.1)
 
 # License
 
